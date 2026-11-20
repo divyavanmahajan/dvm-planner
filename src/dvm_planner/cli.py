@@ -11,7 +11,7 @@ from pathlib import Path
 from . import __version__
 from .browser import API_HOST, DEFAULT_PORT, DEFAULT_PROFILE, capture_outlook, capture_tokens, launch_edge
 from .outlook import OutlookClient
-from .reminders import candidates, create_reminders, format_table, prompt_selection, select
+from .reminders import candidates, create_reminders, format_table, prompt_selection, select, sync_reminders
 from .planner import GRAPH_HOST, PlannerClient
 from .installer import update_skills
 
@@ -39,6 +39,11 @@ def _emit(data, out: str | None):
 def _remind(args, p) -> int:
     rows = candidates(_client(args), args.include_done, args.include_no_due)
     public = [{k: v for k, v in r.items() if k not in ("task", "tenantId")} for r in rows]
+    if args.sync:
+        auth, anchor = capture_outlook(args.port)
+        _emit(sync_reminders(OutlookClient(auth, anchor), rows, reminder_minutes=args.reminder_minutes,
+                             show_as=args.show_as, dry_run=args.dry_run), None)
+        return 0
     if args.list:
         if args.json:
             _emit(public, None)
@@ -94,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
     rm.add_argument("--reminder-minutes", type=int, default=1440, help="Reminder before start (default 1440 = 1 day)")
     rm.add_argument("--show-as", default="Busy", choices=["Busy", "Free", "Tentative", "OOF"])
     rm.add_argument("--include-past", action="store_true", help="Create events even if the date has passed")
+    rm.add_argument("--sync", action="store_true",
+                    help="Move existing 'Planner: <task>' events to the task's current due date")
     rm.add_argument("--dry-run", action="store_true")
     rm.add_argument("--json", action="store_true", help="JSON output for --list")
     ut = sub.add_parser("usertasks", help="Tasks assigned to another person (name or e-mail)")

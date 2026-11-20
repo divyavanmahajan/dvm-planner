@@ -24,6 +24,7 @@ profile (SSO normally works automatically; otherwise ask them to sign in once in
 
 | List candidate tasks for reminders | `uvx dvm-planner remind --list [--json]` |
 | Create Outlook reminders | `uvx dvm-planner remind (--all \| --select 1,3-5 \| --task <id/title>)... [--at HH:MM] [--duration 30] [--reminder-minutes 1440] [--on YYYY-MM-DD] [--show-as Busy] [--dry-run]` |
+| Re-date reminders after due dates changed | `uvx dvm-planner remind --sync [--dry-run]` |
 
 Global options: `--port`, `--profile`, `--edge-path`.
 
@@ -35,6 +36,8 @@ reminder 1 day before, body has plan, bucket and a task link). Never prompts whe
    `--all`, `--select`, or `--task`. Past dates and events that already exist are skipped (idempotent).
 3. Needs an Outlook calendar tab signed in in the same Edge profile (opened automatically).
 Tasks without a due date need `--include-no-due --on YYYY-MM-DD`.
+After changing a task's due date (e.g. with `update-task --due`), run `remind --sync --dry-run` then `remind --sync`:
+each `Planner: <title>` event whose date differs from the due date is moved (same time and duration).
 
 `usertasks` resolves the person via Microsoft Graph (errors listing candidates if the name is
 ambiguous; then retry with the e-mail). Planner has no per-user endpoint for other people, so it scans

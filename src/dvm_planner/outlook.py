@@ -34,17 +34,21 @@ class OutlookClient:
         r.raise_for_status()
         return r.json()["Body"]
 
-    def events_on(self, day: date) -> list[dict]:
+    def events_between(self, first: date, last: date) -> list[dict]:
+        """Events starting on first..last inclusive."""
         body = self._call("FindItem", {
             "__type": "FindItemRequest:#Exchange",
             "ItemShape": {"__type": "ItemResponseShape:#Exchange", "BaseShape": "Default"},
-            "CalendarView": {"__type": "CalendarView:#Exchange", "StartDate": day.strftime(FMT),
-                             "EndDate": (day + timedelta(days=1)).strftime(FMT)},
+            "CalendarView": {"__type": "CalendarView:#Exchange", "StartDate": first.strftime(FMT),
+                             "EndDate": (last + timedelta(days=1)).strftime(FMT)},
             "ParentFolderIds": [{"__type": "DistinguishedFolderId:#Exchange", "Id": "calendar"}],
             "Traversal": "Shallow"})
         items = body["ResponseMessages"]["Items"][0]["RootFolder"]["Items"]
         # the service may return more than the requested window, so filter by start date
-        return [i for i in items if str(i.get("Start", ""))[:10] == day.isoformat()]
+        return [i for i in items if first.isoformat() <= str(i.get("Start", ""))[:10] <= last.isoformat()]
+
+    def events_on(self, day: date) -> list[dict]:
+        return self.events_between(day, day)
 
     def find_by_subject(self, day: date, subject: str) -> dict | None:
         return next((e for e in self.events_on(day) if e.get("Subject") == subject), None)

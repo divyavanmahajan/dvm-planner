@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from .outlook import OutlookClient, planner_task_url, reminder_body
 from .planner import PlannerClient
@@ -71,6 +71,48 @@ def prompt_selection(rows: list[dict]) -> list[dict]:
     if not ans:
         return []
     return rows if ans.lower() == "all" else select(rows, False, ans, [])
+
+
+def sync_reminders(outlook: OutlookClient, rows: list[dict], *, reminder_minutes: int, show_as: str,
+                   dry_run: bool, days: int = 400) -> list[dict]:
+    """Move existing `Planner: <title>` events whose date no longer matches the task's due date.
+
+    The event is deleted and recreated (same time of day and duration) on the new due date.
+    """
+    today = date.today()
+    events = [e for e in outlook.events_between(today - timedelta(days=30), today + timedelta(days=days))
+              if str(e.get("Subject", "")).startswith("Planner: ")]
+    by_subject: dict[str, list[dict]] = {}
+    for e in events:
+        by_subject.setdefault(e["Subject"], []).append(e)
+    results = []
+    for r in rows:
+        subject = f"Planner: {r['title']}"
+        found = by_subject.get(subject, [])
+        if not found:
+            continue
+        ev = found[0]
+        old = str(ev["Start"])[:10]
+        res = {"taskId": r["id"], "title": r["title"], "oldDate": old, "newDate": r["due"]}
+        if len(found) > 1:
+            res["status"] = "skipped (several events with this subject)"
+        elif old == r["due"]:
+            continue
+        elif datetime.fromisoformat(r["due"] + "T00:00") < datetime.combine(today, datetime.min.time()):
+            res["status"] = "skipped (new date in the past)"
+        elif dry_run:
+            res["status"] = "dry-run (would move)"
+        else:
+            s = datetime.fromisoformat(str(ev["Start"])[:19])
+            e_ = datetime.fromisoformat(str(ev["End"])[:19])
+            new_start = datetime.combine(date.fromisoformat(r["due"]), s.time())
+            link = planner_task_url(r["planId"], r["id"], r["tenantId"])
+            outlook.create_event(subject, reminder_body(r["task"], r["plan"], link), new_start,
+                                 int((e_ - s).total_seconds() // 60), reminder_minutes, show_as)
+            outlook.delete_event(ev["ItemId"])
+            res["status"] = "moved"
+        results.append(res)
+    return results
 
 
 def create_reminders(outlook: OutlookClient, chosen: list[dict], *, at: str, duration: int,

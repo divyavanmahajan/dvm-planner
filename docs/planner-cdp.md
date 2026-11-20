@@ -74,7 +74,8 @@ recording the browser while creating an event manually (browser-level `Target.se
   `YYYY-MM-DDTHH:MM:SS.000`, time zone ids, `ReminderIsSet`, `ReminderMinutesBeforeStart`, `FreeBusyType`),
   `SavedItemFolderId` = distinguished `calendar`, `SendMeetingInvitations: SendToNone`.
 - `FindItem` + `CalendarView` (use `BaseShape: Default`; filter results by `Start`) for duplicate checks.
-- `DeleteItem` (`ItemId {Id, ChangeKey}`, `MoveToDeletedItems`) removes an event.
+- `DeleteItem` (`ItemId {Id, ChangeKey}`, `MoveToDeletedItems`) removes an event. `remind --sync` re-dates an
+  event by creating it on the new date and deleting the old one (events are matched by subject `Planner: <title>`).
 
 ## 8. Automation
 `dvm-planner` implements these steps: `launch`, `plans`, `mytasks`, `usertasks`, `tasks`, `update-task`, `remind`.

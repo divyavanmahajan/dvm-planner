@@ -25,6 +25,7 @@ uvx dvm-planner update-task "North Star Layers" --due 2026-12-31 --comment "Upda
 uvx dvm-planner remind --list [--json]      # my open tasks with due dates, numbered
 uvx dvm-planner remind --select 1,3-5       # Outlook event "Planner: <task>" on the due date (09:00, 30 min, reminder 1 day before)
 uvx dvm-planner remind --all --dry-run      # or --task "title"; non-interactive when not on a TTY
+uvx dvm-planner remind --sync               # after due dates change: move matching events to the new date
 ```
 `remind` options: `--at HH:MM`, `--duration MIN`, `--reminder-minutes N`, `--on DATE`, `--show-as`,
 `--include-past`, `--include-done`, `--include-no-due`. Past dates and existing events are skipped.
