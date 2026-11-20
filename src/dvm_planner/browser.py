@@ -93,10 +93,12 @@ def _planner_tab(port: int) -> dict:
     return httpx.put(f"{base}/json/new?{PLANNER_HOME}").json()
 
 
-def capture_token(port: int = DEFAULT_PORT, timeout: float = 60) -> str:
-    """Reload the Planner tab and return the Authorization header sent to the Planner API."""
+def capture_tokens(port: int = DEFAULT_PORT, hosts: tuple[str, ...] = (API_HOST,),
+                   timeout: float = 60) -> dict[str, str]:
+    """Reload the Planner tab and return the Authorization header seen for each host in `hosts`."""
     tab = _planner_tab(port)
     cdp = Cdp(tab["webSocketDebuggerUrl"])
+    found: dict[str, str] = {}
     try:
         cdp.call("Network.enable")
         cdp.call("Page.reload")
@@ -104,11 +106,20 @@ def capture_token(port: int = DEFAULT_PORT, timeout: float = 60) -> str:
             if msg.get("method") != "Network.requestWillBeSent":
                 continue
             req = msg["params"]["request"]
-            if f"//{API_HOST}/" not in req["url"]:
+            host = req["url"].split("/")[2] if "//" in req["url"] else ""
+            if host not in hosts or host in found:
                 continue
             for k, v in req["headers"].items():
                 if k.lower() == "authorization":
-                    return v
+                    found[host] = v
+            if len(found) == len(hosts):
+                return found
     finally:
         cdp.close()
-    raise TimeoutError("No Planner API token seen. Is the browser signed in to Planner?")
+    missing = [h for h in hosts if h not in found]
+    raise TimeoutError(f"No token seen for {missing}. Is the browser signed in to Planner?")
+
+
+def capture_token(port: int = DEFAULT_PORT, timeout: float = 60) -> str:
+    """Return the Authorization header sent to the Planner API."""
+    return capture_tokens(port, (API_HOST,), timeout)[API_HOST]

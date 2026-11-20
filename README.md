@@ -17,6 +17,7 @@ It also ships an **agent skill** so GitHub Copilot CLI and Claude Code can answe
 uvx dvm-planner launch                      # start Edge (CDP port 19222, profile ~/.dvm-planner/edge-profile)
 uvx dvm-planner plans                       # list plans (recent + favorites)
 uvx dvm-planner mytasks [--summary]         # tasks assigned to me, grouped by plan
+uvx dvm-planner usertasks "Giampaolo" --with-due   # tasks assigned to someone else (name or e-mail)
 uvx dvm-planner tasks <planId|URL>          # buckets + tasks of one plan
 uvx dvm-planner tasks --all -o all.json     # every listed plan
 uvx dvm-planner update-task "North Star Layers" --due 2026-12-31 --comment "Updated"   # id or title fragment

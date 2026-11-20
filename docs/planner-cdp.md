@@ -56,6 +56,12 @@ Writes need headers `If-Match: <task @odata.etag>` (GET the task first), `OData-
 
 `timeZone` is read-only. Read and write both use `dueDateTime` (`{date, time, timezone, isTimeSpecified}`); `dueUtcDateTime` is legacy and is usually null.
 
-## 6. Automation
-`dvm-planner` implements these steps: `launch`, `plans`, `mytasks`, `tasks`, `update-task`.
+## 6. Other people's tasks
+`/users('{otherId}')/tasks` returns 403, so dvm-planner scans `/plans('{id}')/tasks` for the plans you can see
+(recent/favorite plus plans holding your tasks) and filters `userAssignments` (a list of `{id: <user GUID without dashes>, ...}`). The user id is resolved
+with Microsoft Graph `GET /v1.0/users?$search="displayName:..."` (header `ConsistencyLevel: eventual`), using the
+`graph.microsoft.com` bearer token captured from the same page load.
+
+## 7. Automation
+`dvm-planner` implements these steps: `launch`, `plans`, `mytasks`, `usertasks`, `tasks`, `update-task`.
 

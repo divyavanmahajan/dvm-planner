@@ -11,11 +11,46 @@ BASE = "https://api.planner.svc.cloud.microsoft/taskapi/v4.0"
 TASK_EXPAND = "checklist,links,userAssignments,customFieldValues"
 
 
+GRAPH_HOST = "graph.microsoft.com"
+
+
 class PlannerClient:
-    def __init__(self, authorization: str):
+    def __init__(self, authorization: str, graph_authorization: str | None = None):
+        self.graph_auth = graph_authorization
         self.http = httpx.Client(
             headers={"Authorization": authorization, "Accept": "application/json"}, timeout=60
         )
+
+    def find_users(self, query: str) -> list[dict]:
+        """Resolve a name/e-mail to Entra users via Microsoft Graph (needs the Graph token)."""
+        if not self.graph_auth:
+            raise RuntimeError("Graph token required (use capture_tokens with graph.microsoft.com)")
+        r = httpx.get(
+            "https://graph.microsoft.com/v1.0/users",
+            params={"$search": f'"displayName:{query}" OR "mail:{query}"',
+                    "$select": "id,displayName,mail", "$top": "10"},
+            headers={"Authorization": self.graph_auth, "ConsistencyLevel": "eventual"},
+            timeout=60,
+        )
+        r.raise_for_status()
+        return r.json()["value"]
+
+    def user_tasks(self, user_id: str, plan_ids: list[str] | None = None) -> list[dict]:
+        """Tasks assigned to any user. The API has no per-user endpoint for others, so scan plans:
+        the given ones, else recent/favorite plans plus every plan holding one of my tasks."""
+        if plan_ids is None:
+            ids = {p["id"] for p in self.list_plans()} | {t["planId"] for t in self.my_tasks()}
+            plan_ids = sorted(ids)
+        wanted = user_id.replace("-", "").lower()
+        names = {p["id"]: p.get("displayName") for p in self.list_plans()}
+        out = []
+        for pid in plan_ids:
+            for t in self.tasks(pid):
+                # userAssignments is a list of {id: <user GUID without dashes>, ...}
+                if any(a.get("id", "").lower() == wanted for a in t.get("userAssignments") or []):
+                    t["planName"] = names.get(pid) or self.get_plan(pid).get("displayName")
+                    out.append(t)
+        return out
 
     def _get_all(self, url: str) -> list[dict]:
         items: list[dict] = []

@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .browser import DEFAULT_PORT, DEFAULT_PROFILE, capture_token, launch_edge
-from .planner import PlannerClient
+from .browser import API_HOST, DEFAULT_PORT, DEFAULT_PROFILE, capture_tokens, launch_edge
+from .planner import GRAPH_HOST, PlannerClient
 from .installer import update_skills
 
 
@@ -21,7 +21,8 @@ def _plan_id(value: str) -> str:
 
 def _client(args) -> PlannerClient:
     launch_edge(args.port, args.profile, args.edge_path)
-    return PlannerClient(capture_token(args.port))
+    tokens = capture_tokens(args.port, (API_HOST, GRAPH_HOST))
+    return PlannerClient(tokens[API_HOST], tokens[GRAPH_HOST])
 
 
 def _emit(data, out: str | None):
@@ -47,6 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("launch", help="Start Edge with CDP enabled and open Planner")
     pl = sub.add_parser("plans", help="List plans as JSON")
     pl.add_argument("-o", "--output")
+    ut = sub.add_parser("usertasks", help="Tasks assigned to another person (name or e-mail)")
+    ut.add_argument("user")
+    ut.add_argument("--plan", action="append", help="Limit to plan id/URL (repeatable)")
+    ut.add_argument("--with-due", action="store_true", help="Only tasks that have a due date")
+    ut.add_argument("-o", "--output")
     mt = sub.add_parser("mytasks", help="Tasks assigned to me, grouped by plan (JSON)")
     mt.add_argument("-o", "--output")
     mt.add_argument("--summary", action="store_true", help="Only plan names and task counts")
@@ -82,6 +88,16 @@ def main(argv: list[str] | None = None) -> int:
         _emit([{"id": x["id"], "displayName": x.get("displayName"),
                 "lastModifiedDateTime": x.get("lastModifiedDateTime")}
                for x in client.list_plans()], args.output)
+    elif args.cmd == "usertasks":
+        users = client.find_users(args.user)
+        if len(users) != 1:
+            p.error(f"{len(users)} users match {args.user!r}: "
+                    + "; ".join(f"{u['displayName']} <{u['mail']}>" for u in users))
+        tasks = client.user_tasks(users[0]["id"], [_plan_id(x) for x in args.plan] if args.plan else None)
+        if args.with_due:
+            tasks = [t for t in tasks if (t.get("dueDateTime") or {}).get("date")]
+        tasks.sort(key=lambda t: ((t.get("dueDateTime") or {}).get("date") or "9999", t["displayName"]))
+        _emit({"user": users[0], "taskCount": len(tasks), "tasks": tasks}, args.output)
     elif args.cmd == "update-task":
         task_id = args.task
         if not re.fullmatch(r"[\w-]{20,}", task_id):
