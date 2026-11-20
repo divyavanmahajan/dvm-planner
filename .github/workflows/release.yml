@@ -1,0 +1,72 @@
+# One-time PyPI setup: at https://pypi.org/manage/account/publishing/ add a trusted
+# publisher for project "dvm-planner" with owner/repo = <github-owner>/<repo>,
+# workflow = release.yml, environment = pypi (create the "pypi" environment in repo settings).
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute and push next tag
+        id: bump
+        run: |
+          git fetch --tags --force
+          if [ -n "$(git tag --points-at HEAD --list 'v*')" ]; then
+            echo "HEAD already tagged; skipping"
+            echo "version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          latest=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$latest" ]; then
+            next="v0.1.0"
+          else
+            IFS=. read -r major minor patch <<< "${latest#v}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$next" -m "Release $next"
+          git push origin "refs/tags/$next"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: tag
+    if: needs.tag.outputs.version != ''
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ needs.tag.outputs.version }}
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ needs.tag.outputs.version }}" dist/* \
+            --title "${{ needs.tag.outputs.version }}" --generate-notes

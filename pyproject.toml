@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dvm-planner"
+dynamic = ["version"]
+description = "Extract Microsoft Planner plans and tasks as JSON via an Edge browser (CDP)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27", "websockets>=12"]
+
+[project.scripts]
+dvm-planner = "dvm_planner.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dvm_planner"]
