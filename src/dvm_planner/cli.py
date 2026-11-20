@@ -50,6 +50,13 @@ def main(argv: list[str] | None = None) -> int:
     mt = sub.add_parser("mytasks", help="Tasks assigned to me, grouped by plan (JSON)")
     mt.add_argument("-o", "--output")
     mt.add_argument("--summary", action="store_true", help="Only plan names and task counts")
+    u = sub.add_parser("update-task", help="Update a task (due date, notes, checklist, comment)")
+    u.add_argument("task", help="Task id, or part of the title of one of my tasks")
+    u.add_argument("--due", metavar="YYYY-MM-DD|none", help="Set or clear the due date")
+    u.add_argument("--notes", help="Replace notes (HTML)")
+    u.add_argument("--add-checklist", action="append", default=[], metavar="TEXT")
+    u.add_argument("--comment", help="Post a comment")
+    u.add_argument("--patch", metavar="JSON", help="Raw PATCH body, as sent by the Planner UI")
     t = sub.add_parser("tasks", help="Export plan tasks (with buckets) as JSON")
     t.add_argument("plan", nargs="*", help="Plan ids or Planner URLs; omit with --all")
     t.add_argument("--all", action="store_true", help="Export every listed plan")
@@ -75,6 +82,27 @@ def main(argv: list[str] | None = None) -> int:
         _emit([{"id": x["id"], "displayName": x.get("displayName"),
                 "lastModifiedDateTime": x.get("lastModifiedDateTime")}
                for x in client.list_plans()], args.output)
+    elif args.cmd == "update-task":
+        task_id = args.task
+        if not re.fullmatch(r"[\w-]{20,}", task_id):
+            hits = client.find_my_tasks(task_id)
+            if len(hits) != 1:
+                p.error(f"{len(hits)} of my tasks match {task_id!r}: "
+                        + "; ".join(f"{t['displayName']} ({t['id']})" for t in hits))
+            task_id = hits[0]["id"]
+        if args.due:
+            if args.due != "none" and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.due):
+                p.error("--due must be YYYY-MM-DD or none")
+            client.set_due_date(task_id, None if args.due == "none" else args.due)
+        if args.notes:
+            client.set_notes(task_id, args.notes)
+        for item in args.add_checklist:
+            client.add_checklist_item(task_id, item)
+        if args.patch:
+            client.patch_task(task_id, json.loads(args.patch))
+        if args.comment:
+            client.add_comment(task_id, args.comment)
+        _emit(client.get_task(task_id), None)
     elif args.cmd == "mytasks":
         data = client.my_tasks_by_plan()
         if args.summary:

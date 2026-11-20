@@ -19,6 +19,11 @@ profile (SSO normally works automatically; otherwise ask them to sign in once in
 | Tasks assigned to me, by plan | `uvx dvm-planner mytasks [--summary] [-o file]` |
 | Buckets + tasks of a plan | `uvx dvm-planner tasks <planId or Planner URL> [-o file]` |
 | Every listed plan | `uvx dvm-planner tasks --all -o all.json` |
+| Update a task | `uvx dvm-planner update-task <taskId or title fragment> [--due YYYY-MM-DD\|none] [--notes HTML] [--add-checklist TEXT] [--comment TEXT] [--patch JSON]` |
+
+Writes change real data: confirm the task and values with the user first. To support another field,
+capture the UI's request (see `docs/planner-cdp.md` section 5) and send it with `--patch`. Due dates are in `dueDateTime.date`
+(`dueUtcDateTime` is legacy and usually null); write them as `{"dueDateTime":{"date":"YYYY-MM-DD"}}`.
 
 Global options: `--port`, `--profile`, `--edge-path`.
 
@@ -26,11 +31,11 @@ Global options: `--port`, `--profile`, `--edge-path`.
 1. Run the command, preferably with `-o file.json`, then filter the JSON with Python/jq rather than printing it all.
 2. Plan id is the segment after `/plan/` in a Planner URL.
 3. Task fields: `displayName`, `bucketId`, `percentComplete` (0/50/100), `status`, `priority`,
-   `startUtcDateTime`, `dueUtcDateTime` (often null), `notes`, `checklist`, `links`,
+   `startDateTime`, `dueDateTime` (`.date`; null when unset), `notes`, `checklist`, `links`,
    `userAssignments` (keys are Entra user object ids), `customFieldValues`, `planView.appliedCategoryIds`.
 4. To filter by person: resolve the name to an object id (Microsoft Graph `/users?$search="displayName:..."`
    with the browser's Graph token, header `ConsistencyLevel: eventual`) and match against `userAssignments` keys.
-5. Always report when `dueUtcDateTime` is empty instead of inventing dates. `plans` only covers
+5. Always report when `dueDateTime` is empty instead of inventing dates. `plans` only covers
    recent/favorite plans, so say so when answering "all plans".
 
 Tokens last ~1h and are recaptured on each run.

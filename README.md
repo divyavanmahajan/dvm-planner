@@ -19,11 +19,14 @@ uvx dvm-planner plans                       # list plans (recent + favorites)
 uvx dvm-planner mytasks [--summary]         # tasks assigned to me, grouped by plan
 uvx dvm-planner tasks <planId|URL>          # buckets + tasks of one plan
 uvx dvm-planner tasks --all -o all.json     # every listed plan
+uvx dvm-planner update-task "North Star Layers" --due 2026-12-31 --comment "Updated"   # id or title fragment
 ```
+`update-task` options: `--due YYYY-MM-DD|none`, `--notes HTML`, `--add-checklist TEXT` (repeatable),
+`--comment TEXT`, `--patch JSON` (raw body, for fields captured from the UI - see docs).
 Options: `--port`, `--profile`, `--edge-path`, `-o/--output`. On first run sign in to Planner in the
 Edge window that opens (SSO usually works automatically); the profile is reused afterwards.
 
-Notes: `plans` covers recent/favorite plans only; `dueUtcDateTime` is often empty in Planner data;
+Notes: `plans` covers recent/favorite plans only; due dates are in `dueDateTime.date` (`dueUtcDateTime` is legacy/null);
 tokens last about an hour and are recaptured on each run.
 How it works: [docs/planner-cdp.md](docs/planner-cdp.md).
 
