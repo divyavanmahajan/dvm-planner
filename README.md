@@ -22,6 +22,14 @@ uvx dvm-planner tasks <planId|URL>          # buckets + tasks of one plan
 uvx dvm-planner tasks --all -o all.json     # every listed plan
 uvx dvm-planner update-task "North Star Layers" --due 2026-12-31 --comment "Updated"   # id or title fragment
 ```
+uvx dvm-planner remind --list [--json]      # my open tasks with due dates, numbered
+uvx dvm-planner remind --select 1,3-5       # Outlook event "Planner: <task>" on the due date (09:00, 30 min, reminder 1 day before)
+uvx dvm-planner remind --all --dry-run      # or --task "title"; non-interactive when not on a TTY
+```
+`remind` options: `--at HH:MM`, `--duration MIN`, `--reminder-minutes N`, `--on DATE`, `--show-as`,
+`--include-past`, `--include-done`, `--include-no-due`. Past dates and existing events are skipped.
+With no selector on a terminal it prompts for numbers.
+
 `update-task` options: `--due YYYY-MM-DD|none`, `--notes HTML`, `--add-checklist TEXT` (repeatable),
 `--comment TEXT`, `--patch JSON` (raw body, for fields captured from the UI - see docs).
 Options: `--port`, `--profile`, `--edge-path`, `-o/--output`. On first run sign in to Planner in the

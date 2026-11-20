@@ -62,6 +62,20 @@ Writes need headers `If-Match: <task @odata.etag>` (GET the task first), `OData-
 with Microsoft Graph `GET /v1.0/users?$search="displayName:..."` (header `ConsistencyLevel: eventual`), using the
 `graph.microsoft.com` bearer token captured from the same page load.
 
-## 7. Automation
-`dvm-planner` implements these steps: `launch`, `plans`, `mytasks`, `usertasks`, `tasks`, `update-task`.
+## 7. Calendar reminders (Outlook on the web)
+Graph tokens from Planner are read-only for calendars, so events are created with OWA's own API, found by
+recording the browser while creating an event manually (browser-level `Target.setAutoAttach` with
+`flatten: true`, then `Network.enable` per attached session; the Planner tab alone sees nothing).
+- `POST https://outlook.cloud.microsoft/owa/service.svc?action=<Action>&app=Calendar`
+- Headers: `Authorization: Bearer` and `X-AnchorMailbox` (both copied from the Outlook tab's own `service.svc`
+  request), `Action: <Action>`, `Prefer: IdType="ImmutableId"`, JSON content type.
+- Body: `{"Header":{"__type":"JsonRequestHeaders:#Exchange","RequestServerVersion":"V2018_01_08","TimeZoneContext":{...}},"Body":{...}}`
+- `CreateCalendarEvent`: `CreateItemRequest` with a `CalendarItem` (`Subject`, HTML `Body`, `Start`/`End` as
+  `YYYY-MM-DDTHH:MM:SS.000`, time zone ids, `ReminderIsSet`, `ReminderMinutesBeforeStart`, `FreeBusyType`),
+  `SavedItemFolderId` = distinguished `calendar`, `SendMeetingInvitations: SendToNone`.
+- `FindItem` + `CalendarView` (use `BaseShape: Default`; filter results by `Start`) for duplicate checks.
+- `DeleteItem` (`ItemId {Id, ChangeKey}`, `MoveToDeletedItems`) removes an event.
+
+## 8. Automation
+`dvm-planner` implements these steps: `launch`, `plans`, `mytasks`, `usertasks`, `tasks`, `update-task`, `remind`.
 

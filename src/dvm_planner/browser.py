@@ -14,6 +14,8 @@ from websockets.sync.client import connect
 
 PLANNER_HOME = "https://planner.cloud.microsoft/ui/web/"
 API_HOST = "api.planner.svc.cloud.microsoft"
+OUTLOOK_HOST = "outlook.cloud.microsoft"
+OUTLOOK_CALENDAR = f"https://{OUTLOOK_HOST}/calendar/view/week"
 DEFAULT_PORT = 19222
 DEFAULT_PROFILE = Path.home() / ".dvm-planner" / "edge-profile"
 
@@ -91,6 +93,31 @@ def _planner_tab(port: int) -> dict:
         if t["type"] == "page" and "planner.cloud.microsoft" in t["url"]:
             return t
     return httpx.put(f"{base}/json/new?{PLANNER_HOME}").json()
+
+
+def capture_outlook(port: int = DEFAULT_PORT, timeout: float = 60) -> tuple[str, str]:
+    """Reload an Outlook calendar tab (opening one if needed); return (Authorization, X-AnchorMailbox)
+    as sent by Outlook on the web to its owa/service.svc endpoint."""
+    base = f"http://127.0.0.1:{port}"
+    tab = next((t for t in httpx.get(f"{base}/json/list").json()
+                if t["type"] == "page" and OUTLOOK_HOST in t["url"]), None)
+    tab = tab or httpx.put(f"{base}/json/new?{OUTLOOK_CALENDAR}").json()
+    cdp = Cdp(tab["webSocketDebuggerUrl"])
+    try:
+        cdp.call("Network.enable")
+        cdp.call("Page.reload")
+        for msg in cdp.events(timeout):
+            if msg.get("method") != "Network.requestWillBeSent":
+                continue
+            req = msg["params"]["request"]
+            if "/owa/service.svc" not in req["url"]:
+                continue
+            h = {k.lower(): v for k, v in req["headers"].items()}
+            if "authorization" in h and "x-anchormailbox" in h:
+                return h["authorization"], h["x-anchormailbox"]
+    finally:
+        cdp.close()
+    raise TimeoutError("No Outlook token seen. Is the browser signed in to Outlook on the web?")
 
 
 def capture_tokens(port: int = DEFAULT_PORT, hosts: tuple[str, ...] = (API_HOST,),

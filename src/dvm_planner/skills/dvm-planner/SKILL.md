@@ -22,7 +22,19 @@ profile (SSO normally works automatically; otherwise ask them to sign in once in
 | Every listed plan | `uvx dvm-planner tasks --all -o all.json` |
 | Update a task | `uvx dvm-planner update-task <taskId or title fragment> [--due YYYY-MM-DD\|none] [--notes HTML] [--add-checklist TEXT] [--comment TEXT] [--patch JSON]` |
 
+| List candidate tasks for reminders | `uvx dvm-planner remind --list [--json]` |
+| Create Outlook reminders | `uvx dvm-planner remind (--all \| --select 1,3-5 \| --task <id/title>)... [--at HH:MM] [--duration 30] [--reminder-minutes 1440] [--on YYYY-MM-DD] [--show-as Busy] [--dry-run]` |
+
 Global options: `--port`, `--profile`, `--edge-path`.
+
+## Calendar reminders (creates real calendar events)
+`remind` makes an Outlook event `Planner: <task title>` on each task's due date (default 09:00, 30 min,
+reminder 1 day before, body has plan, bucket and a task link). Never prompts when stdin is not a TTY:
+1. `remind --list --json` (my tasks, not complete, with due date; `n` is stable, sorted by due date).
+2. Confirm the selection with the user, run once with `--dry-run`, then run without it with
+   `--all`, `--select`, or `--task`. Past dates and events that already exist are skipped (idempotent).
+3. Needs an Outlook calendar tab signed in in the same Edge profile (opened automatically).
+Tasks without a due date need `--include-no-due --on YYYY-MM-DD`.
 
 `usertasks` resolves the person via Microsoft Graph (errors listing candidates if the name is
 ambiguous; then retry with the e-mail). Planner has no per-user endpoint for other people, so it scans
